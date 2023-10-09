@@ -1,52 +1,205 @@
+// ## Create a course selling website
+
+// ### Description
+// 1. Admins should be able to sign up
+// 2. Admins should be able to create courses
+//    1. Course has a title, description, price, and image link
+//    2. Course should be able to be published
+// 3. Admins should be able to edit courses
+// 4. Users should be able to sign up
+// 5. Users should be able to purchase courses
+// 6. Users should be able to view purchased courses
+// 7. Users should be able to view all courses
+
+// ## Routes
+// ### Admin Routes:
+//  - POST /admin/signup
+//    Description: Creates a new admin account.
+//    Input: { username: 'admin', password: 'pass' }
+//    Output: { message: 'Admin created successfully' }
+//  - POST /admin/login
+//    Description: Authenticates an admin. It requires the admin to send username and password in the headers.
+//    Input: Headers: { 'username': 'admin', 'password': 'pass' }
+//    Output: { message: 'Logged in successfully' }
+//  - POST /admin/courses
+//    Description: Creates a new course.
+//    Input: Headers: { 'username': 'admin', 'password': 'pass' }
+//    Input: Body: { title: 'course title', description: 'course description', price: 100, imageLink: 'https://linktoimage.com', published: true }
+//    Output: { message: 'Course created successfully', courseId: 1 }
+//  - PUT /admin/courses/:courseId
+//    Description: Edits an existing course. courseId in the URL path should be replaced with the ID of the course to be edited.
+//    Input: Headers: { 'username': 'admin', 'password': 'pass' }
+//    Input: Body { title: 'updated course title', description: 'updated course description', price: 100, imageLink: 'https://updatedlinktoimage.com', published: false }
+//    Output: { message: 'Course updated successfully' }
+//  - GET /admin/courses
+//    Description: Returns all the courses.
+//    Input: Headers: { 'username': 'admin', 'password': 'pass' }
+//    Output: { courses: [ { id: 1, title: 'course title', description: 'course description', price: 100, imageLink: 'https://linktoimage.com', published: true }, ... ] }
+//    User Routes:
+
+// ### User routes
+//  - POST /users/signup
+//    Description: Creates a new user account.
+//    Input: { username: 'user', password: 'pass' }
+//    Output: { message: 'User created successfully' } 
+//  - POST /users/login
+//    Description: Authenticates a user. It requires the user to send username and password in the headers.
+//    Input: Headers: { 'username': 'user', 'password': 'pass' }
+//    Output: { message: 'Logged in successfully' }
+//  - GET /users/courses
+//    Description: Lists all the courses.
+//    Input: Headers: { 'username': 'admin', 'password': 'pass' }
+//    Output: { courses: [ { id: 1, title: 'course title', description: 'course description', price: 100, imageLink: 'https://linktoimage.com', published: true }, ... ] }
+//  - POST /users/courses/:courseId
+//    Description: Purchases a course. courseId in the URL path should be replaced with the ID of the course to be purchased.
+//    Input: Headers: { 'username': 'admin', 'password': 'pass' }
+//    Output: { message: 'Course purchased successfully' }
+//  - GET /users/purchasedCourses
+//    Description: Lists all the courses purchased by the user.
+//    Input: Headers: { 'username': 'admin', 'password': 'pass' }
+//    Output: { purchasedCourses: [ { id: 1, title: 'course title', description: 'course description', price: 100, imageLink: 'https://linktoimage.com', published: true }, ... ] }
+
 const express = require('express');
+const bodyParser = require('body-parser');
 const app = express();
 
 app.use(express.json());
+
+app.use(bodyParser.json());
 
 let ADMINS = [];
 let USERS = [];
 let COURSES = [];
 
+var courseIdVal = 1;
+
+function adminAuthenticator(req,res,next)
+{
+  const {username, password} = req.headers;
+  for(let i = 0; i < ADMINS.length; i++)
+  {
+    if(ADMINS[i].username == username && ADMINS[i].password == password)
+    {
+      next();
+    }
+  }
+  res.status(404).json({ message: 'Authentication Failed !!' });
+}
+
+function userAuthenticator(req,res,next)
+{
+  const {username, password} = req.headers;
+  const user = USERS.find(u => u.username == username && u.password == password);
+  if (user) {
+    req.user = user;  // Add user object to the request
+    next();
+  } else {
+    res.status(403).json({ message: 'User authentication failed' });
+  }
+}
+
 // Admin routes
 app.post('/admin/signup', (req, res) => {
-  // logic to sign up admin
+  const {username, password} = req.body;     //new way to access the values
+  var obj = {
+    username: username,
+    password: password
+  };
+  ADMINS.push(obj);
+  res.status(200).json({ message: 'Admin created successfully' });
 });
 
-app.post('/admin/login', (req, res) => {
-  // logic to log in admin
+
+
+app.post('/admin/login', adminAuthenticator ,(req, res) => {
+  res.status(200).json({ message: 'Logged in successfully' });
 });
 
-app.post('/admin/courses', (req, res) => {
-  // logic to create a course
+
+app.post('/admin/courses', adminAuthenticator ,(req, res) => {
+  var obj = {
+    courseId: courseIdVal,
+    title: req.body.title,
+    description: req.body.description,
+    price: req.body.price,
+    imageLink: req.body.imageLink,
+    published: req.body.published
+  };
+  courseIdVal += 1;
+  COURSES.push(obj);
+  res.status(200).json({ message: 'Course created successfully', courseId: courseIdVal - 1});
 });
 
-app.put('/admin/courses/:courseId', (req, res) => {
-  // logic to edit a course
+app.put('/admin/courses/:courseId', adminAuthenticator ,(req, res) => {
+  var courseIdValue = req.params.courseId;
+  for(let i = 0; i < COURSES.length; i++)
+  {
+    if(COURSES[i].courseId == courseIdValue)
+    {
+      COURSES[i].title = req.body.title;
+      COURSES[i].description = req.body.description;
+      COURSES[i].price = req.body.price;
+      COURSES[i].imageLink = req.body.imageLink;
+      COURSES[i].published = req.body.published;
+      res.status(200).json({ message: 'Course updated successfully' });
+    }
+  }
+  res.status(404).json({message : 'Course Not Found !!'});
 });
 
-app.get('/admin/courses', (req, res) => {
-  // logic to get all courses
+
+app.get('/admin/courses', adminAuthenticator ,(req, res) => {
+  res.status(200).json({courses: COURSES});
 });
 
 // User routes
 app.post('/users/signup', (req, res) => {
-  // logic to sign up user
+  const {username, password} = req.body;     //new way to access the values
+  var obj = {
+    username: username,
+    password: password,
+    purchasedCourses: []
+  };
+  USERS.push(obj);
+  res.status(200).json({ message: 'User created successfully' });
 });
 
-app.post('/users/login', (req, res) => {
-  // logic to log in user
+
+app.post('/users/login', userAuthenticator ,(req, res) => {
+  res.status(200).json({ message: 'Logged in successfully' });
 });
 
-app.get('/users/courses', (req, res) => {
-  // logic to list all courses
+app.get('/users/courses', userAuthenticator ,(req, res) => {
+  res.status(200).json({courses: COURSES});
 });
 
-app.post('/users/courses/:courseId', (req, res) => {
-  // logic to purchase a course
+app.post('/users/courses/:courseId', userAuthenticator ,(req, res) => {
+  const courseVal = Number(req.params.courseId);
+  const courseToBeBought = COURSES.find(c => c.courseId === courseVal && c.published);
+
+  if(courseToBeBought)
+  {
+    req.user.purchasedCourses.push(courseVal);
+    res.status(200).json({ message: 'Course purchased successfully' });
+  }
+  else
+  {
+    res.status(404).json({ message: 'Course not found or not available' });
+  }
+  
 });
 
-app.get('/users/purchasedCourses', (req, res) => {
-  // logic to view purchased courses
+app.get('/users/purchasedCourses', userAuthenticator ,(req, res) => {
+  var purchasedCourses = [];
+  var purchasedCourseIds = req.user.purchasedCourses;
+  for(let i = 0; i < COURSES.length; i++)
+  {
+    if(purchasedCourseIds.indexOf(COURSES[i].courseId) !== -1)
+    {
+      purchasedCourses.push(COURSES[i])
+    }
+  }
+  res.json({purchasedCourses});
 });
 
 app.listen(3000, () => {
